@@ -18,7 +18,7 @@ Benchmarks
 
 Run the benchmarks using `mvn test`.
 
-The benchmarks simply measure the elapsed time (using sljf4-ext's [`Profiler`][7]) needed to insert 100000 entities.
+The benchmarks simply measure the elapsed time (using slf4j-ext's [`Profiler`][7]) needed to insert 100000 entities.
 
 Sample output snip on my machine:
 
