@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -26,13 +25,14 @@ import org.springframework.orm.jpa.vendor.Database;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import com.acme.model.Customer;
-import com.acme.repository.CustomerRepository;
-import com.acme.repository.DefaultCustomerRepository;
-import com.acme.repository.FlushingCustomerRepository;
-import com.acme.repository.StatelessSessionCustomerRepository;
+import com.acme.repository.custom.BulkOperations;
+import com.acme.repository.custom.DefaultBulkOperations;
+import com.acme.repository.custom.FlushingBulkOperations;
+import com.acme.repository.custom.JdbcTemplateBulkOperations;
+import com.acme.repository.custom.JdbiBulkOperations;
+import com.acme.repository.custom.StatelessSessionBulkOperations;
 
 @Configuration
 @EnableTransactionManagement
@@ -43,7 +43,11 @@ public class TestConfiguration {
   @Bean
   public DataSource dataSource() {
     EmbeddedDatabaseBuilder builder = new EmbeddedDatabaseBuilder();
-    return builder.setType(EmbeddedDatabaseType.H2).build();
+
+    builder.setType(EmbeddedDatabaseType.H2);
+    builder.addScript("classpath:/schema.sql");
+
+    return builder.build();
   }
 
   // EntityManagerFactory
@@ -65,7 +69,6 @@ public class TestConfiguration {
     HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
 
     vendorAdapter.setDatabase(Database.H2);
-    vendorAdapter.setGenerateDdl(true);
 
     return vendorAdapter;
   }
@@ -74,80 +77,71 @@ public class TestConfiguration {
     Map<String, Object> builder = new HashMap<>();
 
     // enable JDBC batches in Hibernate
-    builder.put(AvailableSettings.STATEMENT_BATCH_SIZE, 50);
+    builder.put(AvailableSettings.STATEMENT_BATCH_SIZE, batchSize());
 
     return builder;
-  }
-
-  private EntityManagerFactory entityManagerFactory() {
-    return entityManagerFactoryBean().getObject();
   }
 
   // EntityManager
 
   @Bean
-  public SharedEntityManagerBean entityManagerBean() {
+  public SharedEntityManagerBean entityManagerBean(EntityManagerFactory entityManagerFactory) {
     SharedEntityManagerBean bean = new SharedEntityManagerBean();
 
-    bean.setEntityManagerFactory(entityManagerFactory());
+    bean.setEntityManagerFactory(entityManagerFactory);
 
     return bean;
   }
 
-  private EntityManager entityManager() {
-    return entityManagerBean().getObject();
-  }
-
-  // PlatformTransactionManager
+  // TransactionManager
 
   @Bean
-  public PlatformTransactionManager transactionManager() {
-    JpaTransactionManager txManager = new JpaTransactionManager();
-
-    txManager.setEntityManagerFactory(entityManagerFactory());
-
-    return txManager;
+  public PlatformTransactionManager transactionManager(EntityManagerFactory entityManagerFactory) {
+    return new JpaTransactionManager(entityManagerFactory);
   }
 
   // StatelessSession
 
   @Bean
-  public StatelessSessionFactoryBean statelessSessionFactoryBean() {
+  public StatelessSessionFactoryBean statelessSessionFactoryBean(EntityManagerFactory entityManagerFactory) {
     StatelessSessionFactoryBean factory = new StatelessSessionFactoryBean();
 
-    factory.setEntityManagerFactory(entityManagerFactory());
+    factory.setEntityManagerFactory(entityManagerFactory);
 
     return factory;
-  }
-
-  private StatelessSession statelessSession() {
-    return statelessSessionFactoryBean().getObject();
   }
 
   // repositories
 
   @Bean
   @Qualifier("default")
-  public CustomerRepository defaultCustomerRepository() {
-    return new DefaultCustomerRepository(entityManager());
+  public BulkOperations defaultBulkOperations(EntityManager entityManager) {
+    return new DefaultBulkOperations(entityManager);
   }
 
   @Bean
   @Qualifier("flushing")
-  public CustomerRepository flushingCustomerRepository() {
-    return new FlushingCustomerRepository(entityManager(), batchSize());
+  public BulkOperations flushingBulkOperations(EntityManager entityManager) {
+    return new FlushingBulkOperations(entityManager, batchSize());
   }
 
   @Bean
   @Qualifier("statelessSession")
-  public CustomerRepository statelessSessionCustomerRepository() {
-    return new StatelessSessionCustomerRepository(entityManager(), statelessSession());
+  public BulkOperations statelessSessionCustomerRepository(EntityManager entityManager,
+      StatelessSession statelessSession) {
+    return new StatelessSessionBulkOperations(entityManager, statelessSession);
   }
 
-  // other configuration
+  @Bean
+  @Qualifier("jdbcTemplate")
+  public BulkOperations jdbcTemplateBulkOperations() {
+    return new JdbcTemplateBulkOperations(jdbcTemplate());
+  }
 
-  public int batchSize() {
-    return 50;
+  @Bean
+  @Qualifier("jdbi")
+  public BulkOperations jdbiBulkOperations() {
+    return new JdbiBulkOperations(jdbi(), batchSize());
   }
 
   // JdbcTemplate
@@ -157,17 +151,17 @@ public class TestConfiguration {
     return new JdbcTemplate(dataSource());
   }
 
-  @Bean
-  public TransactionTemplate transactionTemplate() {
-    // using a separate DataSourceTransactionManager, not the JpaTransactionManager configured above
-    return new TransactionTemplate(new DataSourceTransactionManager(dataSource()));
-  }
-
   // JDBI
 
   @Bean
   public IDBI jdbi() {
     return new DBI(dataSource());
+  }
+
+  // other configuration
+
+  public int batchSize() {
+    return 50;
   }
 
 }

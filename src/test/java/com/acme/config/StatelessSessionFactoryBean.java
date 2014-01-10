@@ -75,7 +75,7 @@ public class StatelessSessionFactoryBean implements FactoryBean<StatelessSession
   }
 
   @Override
-  public void afterPropertiesSet() throws Exception {
+  public void afterPropertiesSet() {
     if (entityManagerFactory == null) {
       throw new IllegalStateException("Property 'entityManagerFactory' is required");
     }

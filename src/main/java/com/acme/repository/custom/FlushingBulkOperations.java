@@ -1,28 +1,27 @@
-package com.acme.repository;
+package com.acme.repository.custom;
+
+import java.util.List;
 
 import javax.persistence.EntityManager;
 
-import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.acme.model.Customer;
 
-public final class FlushingCustomerRepository extends SimpleJpaRepository<Customer, Long> implements CustomerRepository {
+public final class FlushingBulkOperations implements BulkOperations {
 
   private final EntityManager em;
 
   private final int batchSize;
 
-  public FlushingCustomerRepository(EntityManager em, int batchSize) {
-    super(Customer.class, em);
-
+  public FlushingBulkOperations(EntityManager em, int batchSize) {
     this.em = em;
     this.batchSize = batchSize;
   }
 
   @Override
   @Transactional
-  public void bulkPersist(Iterable<Customer> entities) {
+  public void bulkPersist(List<Customer> entities) {
     int i = 0;
     for (Customer entity : entities) {
       em.persist(entity);
@@ -33,6 +32,10 @@ public final class FlushingCustomerRepository extends SimpleJpaRepository<Custom
         clear();
       }
     }
+  }
+
+  private void flush() {
+    em.flush();
   }
 
   private void clear() {

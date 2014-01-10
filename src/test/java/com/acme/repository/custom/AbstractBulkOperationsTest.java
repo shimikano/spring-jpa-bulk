@@ -1,4 +1,4 @@
-package com.acme.benchmark;
+package com.acme.repository.custom;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -8,25 +8,32 @@ import java.util.List;
 import javax.inject.Inject;
 
 import org.junit.After;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
-import org.slf4j.profiler.Profiler;
+import org.skife.jdbi.v2.util.LongMapper;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import com.acme.config.TestConfiguration;
 import com.acme.model.Customer;
+import com.carrotsearch.junitbenchmarks.BenchmarkOptions;
+import com.carrotsearch.junitbenchmarks.BenchmarkRule;
 
 /**
  * The base benchmark (test) class.
  */
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfiguration.class)
-public abstract class AbstractBulkInsertTest {
+public abstract class AbstractBulkOperationsTest {
+
+  @Rule
+  public TestRule benchmarkRun = new BenchmarkRule();
 
   @Inject
   private IDBI dbi;
@@ -49,18 +56,28 @@ public abstract class AbstractBulkInsertTest {
    * Persists lots of entities and checks the count.
    */
   @Test
+  @BenchmarkOptions(benchmarkRounds = 10, warmupRounds = 1)
   public final void bulkInsert() {
-    final int n = 100000;
+    final int n = 500000;
 
     List<Customer> entities = createEntities(n);
 
-    Profiler profiler = new Profiler("Bulk insert - " + name());
+    System.out.print("Persisting...");
+    long start = System.nanoTime();
+    bulkOperations().bulkPersist(entities);
+    long end = System.nanoTime();
+    System.out.println(" done in " + (end - start) / 1000000.0 + " ms");
 
-    profiler.start(n + " entities");
-    bulkInsert(entities);
-    profiler.stop().print();
+    assertThat(count()).isEqualTo(n);
+  }
 
-    assertThat(getCount()).isEqualTo(n);
+  private long count() {
+    return dbi.inTransaction(new TransactionCallback<Long>() {
+      @Override
+      public Long inTransaction(Handle handle, TransactionStatus status) {
+        return handle.createQuery("select count(*) from customer").map(LongMapper.FIRST).first();
+      }
+    });
   }
 
   private static List<Customer> createEntities(int n) {
@@ -73,10 +90,6 @@ public abstract class AbstractBulkInsertTest {
     return entities;
   }
 
-  protected abstract String name();
-
-  protected abstract void bulkInsert(List<Customer> entities);
-
-  protected abstract long getCount();
+  protected abstract BulkOperations bulkOperations();
 
 }
