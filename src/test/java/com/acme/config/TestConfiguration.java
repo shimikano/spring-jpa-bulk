@@ -74,7 +74,7 @@ public class TestConfiguration {
     Map<String, Object> builder = new HashMap<>();
 
     // enable JDBC batches in Hibernate
-    builder.put(AvailableSettings.STATEMENT_BATCH_SIZE, 50);
+    builder.put(AvailableSettings.STATEMENT_BATCH_SIZE, batchSize());
 
     return builder;
   }
