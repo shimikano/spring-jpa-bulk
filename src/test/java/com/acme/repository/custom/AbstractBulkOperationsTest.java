@@ -7,7 +7,6 @@ import java.util.List;
 
 import javax.inject.Inject;
 
-import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -17,9 +16,12 @@ import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.util.LongMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import com.acme.config.ClearDatabase;
 import com.acme.config.TestConfiguration;
 import com.acme.model.Customer;
 import com.carrotsearch.junitbenchmarks.BenchmarkOptions;
@@ -32,25 +34,17 @@ import com.carrotsearch.junitbenchmarks.BenchmarkRule;
 @ContextConfiguration(classes = TestConfiguration.class)
 public abstract class AbstractBulkOperationsTest {
 
+  private final Logger log = LoggerFactory.getLogger(AbstractBulkOperationsTest.class);
+
+  @Rule
+  @Inject
+  public ClearDatabase clearDatabase;
+
   @Rule
   public TestRule benchmarkRun = new BenchmarkRule();
 
   @Inject
   private IDBI dbi;
-
-  /**
-   * Clears the database after every test.
-   */
-  @After
-  public final void clearDatabase() {
-    dbi.inTransaction(new TransactionCallback<Void>() {
-      @Override
-      public Void inTransaction(Handle handle, TransactionStatus status) throws Exception {
-        handle.execute("delete from customer");
-        return null;
-      }
-    });
-  }
 
   /**
    * Persists lots of entities and checks the count.
@@ -62,11 +56,11 @@ public abstract class AbstractBulkOperationsTest {
 
     List<Customer> entities = createEntities(n);
 
-    System.out.print("Persisting...");
+    log.info("Persisting...");
     long start = System.nanoTime();
     bulkOperations().bulkPersist(entities);
     long end = System.nanoTime();
-    System.out.println(" done in " + (end - start) / 1000000.0 + " ms");
+    log.info("Done in " + (end - start) / 1000000.0 + " ms");
 
     assertThat(count()).isEqualTo(n);
   }

@@ -14,6 +14,7 @@ import org.skife.jdbi.v2.IDBI;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
@@ -27,6 +28,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import com.acme.model.Customer;
+import com.acme.repository.CustomerRepository;
 import com.acme.repository.custom.BulkOperations;
 import com.acme.repository.custom.DefaultBulkOperations;
 import com.acme.repository.custom.FlushingBulkOperations;
@@ -36,6 +38,7 @@ import com.acme.repository.custom.StatelessSessionBulkOperations;
 
 @Configuration
 @EnableTransactionManagement
+@EnableJpaRepositories(basePackageClasses = CustomerRepository.class)
 public class TestConfiguration {
 
   // DataSource
@@ -53,7 +56,7 @@ public class TestConfiguration {
   // EntityManagerFactory
 
   @Bean
-  public LocalContainerEntityManagerFactoryBean entityManagerFactoryBean() {
+  public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
     LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
 
     factory.setDataSource(dataSource());
@@ -85,7 +88,7 @@ public class TestConfiguration {
   // EntityManager
 
   @Bean
-  public SharedEntityManagerBean entityManagerBean(EntityManagerFactory entityManagerFactory) {
+  public SharedEntityManagerBean entityManager(EntityManagerFactory entityManagerFactory) {
     SharedEntityManagerBean bean = new SharedEntityManagerBean();
 
     bean.setEntityManagerFactory(entityManagerFactory);
@@ -103,7 +106,7 @@ public class TestConfiguration {
   // StatelessSession
 
   @Bean
-  public StatelessSessionFactoryBean statelessSessionFactoryBean(EntityManagerFactory entityManagerFactory) {
+  public StatelessSessionFactoryBean statelessSession(EntityManagerFactory entityManagerFactory) {
     StatelessSessionFactoryBean factory = new StatelessSessionFactoryBean();
 
     factory.setEntityManagerFactory(entityManagerFactory);
@@ -111,7 +114,7 @@ public class TestConfiguration {
     return factory;
   }
 
-  // repositories
+  // bulk operations
 
   @Bean
   @Qualifier("default")
@@ -125,10 +128,12 @@ public class TestConfiguration {
     return new FlushingBulkOperations(entityManager, batchSize());
   }
 
-  @Bean
+  // Note the special bean name.
+  // According to the Spring Data naming conventions,
+  // this will be used as implementation of the custom repository operations.
+  @Bean(name = "customerRepositoryImpl")
   @Qualifier("statelessSession")
-  public BulkOperations statelessSessionCustomerRepository(EntityManager entityManager,
-      StatelessSession statelessSession) {
+  public BulkOperations statelessSessionBulkOperations(EntityManager entityManager, StatelessSession statelessSession) {
     return new StatelessSessionBulkOperations(entityManager, statelessSession);
   }
 
@@ -156,6 +161,13 @@ public class TestConfiguration {
   @Bean
   public IDBI jdbi() {
     return new DBI(dataSource());
+  }
+
+  // JUnit rule to clear the DB
+
+  @Bean
+  public ClearDatabase clearDatabase() {
+    return new ClearDatabase(jdbi());
   }
 
   // other configuration
