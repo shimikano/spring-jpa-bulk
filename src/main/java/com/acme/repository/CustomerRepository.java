@@ -6,5 +6,7 @@ import com.acme.model.Customer;
 import com.acme.repository.custom.BulkOperations;
 
 public interface CustomerRepository extends CrudRepository<Customer, Long>, BulkOperations {
-  // empty
+
+  public Customer findById(long id);
+
 }
