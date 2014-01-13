@@ -60,7 +60,7 @@ public abstract class AbstractBulkOperationsTest {
     long start = System.nanoTime();
     bulkOperations().bulkPersist(entities);
     long end = System.nanoTime();
-    log.info("Done in " + (end - start) / 1000000.0 + " ms");
+    log.info("Done in {} ms", (end - start) / 1000000.0);
 
     assertThat(count()).isEqualTo(n);
   }
