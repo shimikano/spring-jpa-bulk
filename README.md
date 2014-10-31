@@ -1,7 +1,7 @@
 spring-jpa-bulk
 ===============
 
-Configuration and simple benchmarks of 3 ways of setting up bulk inserts ("batch" inserts) in a Spring/JPA environment using Hibernate and an in-memory H2 database:
+Configuration and simple benchmarks of 5 ways of setting up bulk inserts ("batch" inserts) in a Spring/JPA environment using Hibernate and an in-memory H2 database:
 
 1. Using a default loop of `EntityManager.persist(...)`.
 
@@ -11,7 +11,7 @@ Configuration and simple benchmarks of 3 ways of setting up bulk inserts ("batch
 
 4. Using [`JdbcTemplate`][4].
 
-5. Using [JDBI][5]
+5. Using [JDBI][5].
 
 The project is Maven based.
 
